@@ -1,0 +1,127 @@
+{% extends 'monitoreo/base.html' %}
+
+{% block content %}
+<section class="card">
+    <div class="card-header">
+        <div>
+            <div class="card-title">Historial por municipio</div>
+            <div class="small">Explora las lecturas y descarga los datos.</div>
+        </div>
+    </div>
+
+    <div class="grid-2">
+        {% for municipio in municipios %}
+            <div class="municipio-card">
+                <div class="municipio-header">
+                    <div style="font-weight:600;">{{ municipio.nombre }}</div>
+                    <span class="chip">{{ municipio.slug }}</span>
+                </div>
+                <p class="small">
+                    Selecciona qué sensor quieres visualizar o descarga el CSV completo.
+                </p>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <a href="#" class="link"
+                       data-historial="{{ municipio.slug }}"
+                       data-tipo="temperatura">Temp</a>
+                    <a href="#" class="link"
+                       data-historial="{{ municipio.slug }}"
+                       data-tipo="humedad">Hum</a>
+                    <a href="#" class="link"
+                       data-historial="{{ municipio.slug }}"
+                       data-tipo="luz">Luz</a>
+                    <a href="{% url 'monitoreo:export_csv' municipio.slug %}" class="link">
+                        CSV
+                    </a>
+                </div>
+            </div>
+        {% empty %}
+            <p class="small">No hay municipios registrados todavía.</p>
+        {% endfor %}
+    </div>
+</section>
+
+<section class="card" style="margin-top:18px;">
+    <div class="card-header">
+        <div>
+            <div class="card-title">Vista rápida del historial</div>
+            <div class="small" id="historial-title">
+                Selecciona un municipio para ver su serie de tiempo.
+            </div>
+        </div>
+    </div>
+    <div style="height:220px;">
+        <canvas id="historialChart"></canvas>
+    </div>
+</section>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const ctx = document.getElementById('historialChart').getContext('2d');
+    let historialChart = new Chart(ctx, {
+        type: 'line',
+        data: { labels: [], datasets: [] },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: {
+                    ticks: { color: '#7A6156', maxRotation: 0 },
+                    grid: { display: false }
+                },
+                y: {
+                    ticks: { color: '#7A6156' },
+                    grid: {
+                        color: 'rgba(200, 160, 120, 0.25)',
+                        drawBorder: false
+                    }
+                }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#2C2430',
+                    titleColor: '#F2D0A4',
+                    bodyColor: '#FFF',
+                    padding: 10,
+                    cornerRadius: 10
+                }
+            },
+            tension: 0.35
+        }
+    });
+
+    document.querySelectorAll('[data-historial]').forEach(function (link) {
+        link.addEventListener('click', function (evt) {
+            evt.preventDefault();
+            const slug = this.getAttribute('data-historial');
+            const tipo = this.getAttribute('data-tipo');
+
+            fetch(`/api/historial/${slug}/${tipo}/`)
+                .then(r => r.json())
+                .then(json => {
+                    const labels = json.data.map(p =>
+                        new Date(p.timestamp).toLocaleTimeString()
+                    );
+                    const values = json.data.map(p => p.valor);
+
+                    historialChart.data.labels = labels;
+                    historialChart.data.datasets = [{
+                        label: tipo,
+                        data: values,
+                        fill: true,
+                        borderWidth: 2,
+                        borderColor: '#D98E04',
+                        backgroundColor: 'rgba(242, 163, 65, 0.2)',
+                        pointRadius: 3,
+                        pointBackgroundColor: '#BF6B63'
+                    }];
+                    historialChart.update();
+
+                    document.getElementById('historial-title').textContent =
+                        `${json.municipio} · ${tipo} (últimas ${values.length} lecturas)`;
+                });
+        });
+    });
+});
+</script>
+{% endblock %}

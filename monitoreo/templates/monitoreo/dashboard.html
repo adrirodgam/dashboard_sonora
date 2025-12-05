@@ -1,0 +1,153 @@
+{% extends 'monitoreo/base.html' %}
+{% load static %}
+
+{% block extra_head %}
+<script src="{% static 'monitoreo/js/charts.js' %}"></script>
+{% endblock %}
+
+
+{% block content %}
+
+<!-- ================= STATS SUPERIORES ================= -->
+<div class="stats-row">
+    <div class="stat-card">
+        <div class="stat-label">Municipios monitoreados</div>
+        <div class="stat-value">{{ tarjetas|length }}</div>
+        <div class="stat-foot">Con sensores activos</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Sensores</div>
+        <div class="stat-value">3</div>
+        <div class="stat-foot">Temperatura · Humedad · Luz</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Alertas activas</div>
+        <div class="stat-value">{{ alerts|length }}</div>
+        <div class="stat-foot">
+            {% if alerts %}
+            <span class="badge-pill">Revisar condiciones críticas</span>
+            {% else %}Todo bajo control{% endif %}
+        </div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Actualización</div>
+        <div class="stat-value">{{ now|time:"H:i" }}</div>
+        <div class="stat-foot">{{ now|date:"d M Y" }}</div>
+    </div>
+</div>
+
+
+<!-- ================ GRAFICA PRINCIPAL + ALERTAS ================ -->
+<div class="content-grid">
+
+    <!---------- GRAFICA PRINCIPAL ---------->
+    <section class="card">
+        <div class="card-header">
+            <div>
+                <div class="card-title">Mapa de calor de municipios</div>
+                <div class="small">Tendencias en tiempo real (MQTT)</div>
+            </div>
+            <span class="pill">sonora/#</span>
+        </div>
+
+        <div style="height:230px">
+            <canvas id="mainChart"></canvas>
+        </div>
+    </section>
+
+
+    <!---------- ALERTAS (CON ANCLA PARA EL MENU) ---------->
+    <section class="card" id="alertas">
+        <div class="card-header">
+            <div>
+                <div class="card-title">Alertas climáticas</div>
+                <div class="small">Condiciones extremas detectadas</div>
+            </div>
+        </div>
+
+        {% if alerts %}
+        <div class="alerts">
+            {% for alert in alerts %}
+            <div class="alert-item">
+                <div>
+                    <div style="font-weight:600;">{{ alert.municipio }}</div>
+                    <div class="small">{{ alert.mensaje }}</div>
+                </div>
+                <span class="alert-tag">{{ alert.tipo }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="small">No hay alertas actualmente.</p>
+        {% endif %}
+    </section>
+
+</div>
+
+
+
+<!-- ================ DETALLE POR MUNICIPIO (ANCLA HISTORIAL) ================ -->
+<section class="card" style="margin-top:20px" id="historial">
+    <div class="card-header">
+        <div>
+            <div class="card-title">Detalle por municipio</div>
+            <div class="small">Últimos valores recibidos por sensor</div>
+        </div>
+
+        <a href="{% url 'monitoreo:municipios' %}" class="link">Ver historial completo &raquo;</a>
+    </div>
+
+
+    <div class="grid-2">
+        {% for tarjeta in tarjetas %}
+        <div class="municipio-card">
+            <div class="municipio-header">
+                <div style="font-weight:600">{{ tarjeta.municipio.nombre }}</div>
+                <span class="chip">Activo</span>
+            </div>
+
+            <div class="metrics-row">
+                {% with t=tarjeta.datos.temperatura %}
+                {% if t %}
+                <div class="metric-pill"><span class="metric-label">Temp</span>
+                    <span class="metric-value">{{ t.valor|floatformat:1 }}°C</span>
+                </div>
+                {% endif %}
+                {% endwith %}
+
+                {% with h=tarjeta.datos.humedad %}
+                {% if h %}
+                <div class="metric-pill"><span class="metric-label">Hum</span>
+                    <span class="metric-value">{{ h.valor|floatformat:1 }}%</span>
+                </div>
+                {% endif %}
+                {% endwith %}
+
+                {% with l=tarjeta.datos.luz %}
+                {% if l %}
+                <div class="metric-pill"><span class="metric-label">Luz</span>
+                    <span class="metric-value">{{ l.valor|floatformat:0 }}</span>
+                </div>
+                {% endif %}
+                {% endwith %}
+            </div>
+
+            <div style="margin-top:6px;">
+                <a href="{% url 'monitoreo:export_csv' tarjeta.municipio.slug %}" class="link">
+                    Descargar CSV
+                </a>
+            </div>
+        </div>
+
+        {% empty %}
+        <p class="small">No hay datos registrados todavía.</p>
+        {% endfor %}
+    </div>
+
+</section>
+
+
+{% endblock %}
